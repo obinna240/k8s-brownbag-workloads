@@ -1,0 +1,224 @@
+#create a namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brown-bag
+
+
+#create storage class for provisioning storage dynamically
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/gce-pd
+
+---
+
+#create persistent volume claim for mysql storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 40Mi
+  storageClassName: standard
+
+---
+
+#create mysql service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+  type: ClusterIP
+
+---
+
+#create mysql secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret
+data:
+  username: dXNlcg==
+  password: cGFzc3dvcmQ=
+
+---
+
+#create mysql deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - image: mysql:5.6
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: test-secret
+                  key: password
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: mysql-claim
+
+---
+
+#create mysql secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-service-secret
+data:
+  username: bmV3c19zZXJ2aWNl
+  password: cGFzc3dvcmQ=
+  datasourceurl: amRiYzpteXNxbDovL215c3FsOjMzMDYvbmV3c3NlcnZpY2U/dXNlVW5pY29kZT10cnVlJmNoYXJhY3RlckVuY29kaW5nPVVURi04JnNlcnZlclRpbWV6b25lPVVUQw==
+  subsciberusername: c3Vic2NyaWJlcg==
+  subscriberdatasourceurl: amRiYzpteXNxbDovL215c3FsOjMzMDYvc3Vic2NyaWJlcnNlcnZpY2U/dXNlVW5pY29kZT10cnVlJmNoYXJhY3RlckVuY29kaW5nPVVURi04JnNlcnZlclRpbWV6b25lPVVUQw==
+---
+
+#Configure a deployment for db_service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dbservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dbservice
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: dbservice
+    spec:
+      containers:
+        - image: obinna240/k8s-brownbag-dbservice:v1
+          name: dbservice
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prodmysql
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: password
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: datasourceurl
+          ports:
+            - containerPort: 8991
+
+---
+
+#create subscriber-Service service
+apiVersion: v1
+kind: Service
+metadata:
+  name: newsdbservice
+  namespace: brown-bag
+spec:
+  type: ClusterIP
+  selector:
+    app: dbservice
+  ports:
+    - port: 8991
+
+---
+
+#create subscriber-Service service
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscriberservice
+  namespace: brown-bag
+spec:
+  type: NodePort
+  selector:
+    app: subscriberservice
+  ports:
+    - port: 8992
+      targetPort: 8992
+      nodePort: 30001
+
+---
+
+#Configure a deployment for subscriber_service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriberservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriberservice
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: subscriberservice
+    spec:
+      containers:
+        - image: obinna240/k8s-brownbag-subscriberservice:v1
+          name: subscriberservice
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prodmysql
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: subsciberusername
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: password
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-service-secret
+                  key: subscriberdatasourceurl
+          ports:
+            - containerPort: 8992
