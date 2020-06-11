@@ -4,13 +4,32 @@ kind: Namespace
 metadata:
   name: brown-bag
 
+---
 
-#create storage class for provisioning storage dynamically
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
+# #create storage class for provisioning storage dynamically
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#  name: standard
+# provisioner: kubernetes.io/gce-pd
+
+# to run locally we create a persistent volume
+apiVersion: v1
+kind: PersistentVolume
 metadata:
-  name: standard
-provisioner: kubernetes.io/gce-pd
+  name: mysql-pv
+spec:
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: standard
+  capacity:
+    storage: 100Mi
+  hostPath:
+    path: /tmp/data
+    type: DirectoryOrCreate
+
+
 
 ---
 
@@ -24,7 +43,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 40Mi
+      storage: 70Mi
   storageClassName: standard
 
 ---
