@@ -125,7 +125,7 @@ spec:
         app: dbservice
     spec:
       containers:
-        - image: obinna240/k8s-brownbag-dbservice:v1
+        - image: obinna240/k8s-brownbag-dbservice:v3
           name: dbservice
           env:
             - name: SPRING_PROFILES_ACTIVE
@@ -200,7 +200,7 @@ spec:
         app: subscriberservice
     spec:
       containers:
-        - image: obinna240/k8s-brownbag-subscriberservice:v1
+        - image: obinna240/subscriber-service:v8
           name: subscriberservice
           env:
             - name: SPRING_PROFILES_ACTIVE
